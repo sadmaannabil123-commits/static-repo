@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Cyber Vault: Hack Assault + Stealth Maze</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+    background:#050505;
+    color:#00ff41;
+    font-family:'Share Tech Mono', monospace;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    overflow:hidden;
+}
+
+/* Animated grid background */
+body::before{
+    content:"";
+    position:fixed;
+    width:200%;height:200%;
+    background-image:
+        linear-gradient(#00ff4115 1px,transparent 1px),
+        linear-gradient(90deg,#00ff4115 1px,transparent 1px);
+    background-size:40px 40px;
+    animation:gridMove 20s linear infinite;
+    z-index:-2;
+}
+@keyframes gridMove{from{transform:translate(0,0);}to{transform:translate(-40px,-40px);}}
+
+/* Scanlines */
+body::after{
+    content:"";
+    position:fixed;
+    inset:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.15) 2px,rgba(0,0,0,0.15) 4px);
+    pointer-events:none;
+    z-index:9999;
+}
+
+/* =========== VAULT SCREEN =========== */
+#vault-screen{
+    border:2px solid #00ff41;
+    padding:40px;
+    border-radius:12px;
+    text-align:center;
+    box-shadow:0 0 40px #00ff4188, inset 0 0 20px #00ff4122;
+    width:440px;
+    position:relative;
+    transition:opacity 0.6s, transform 0.6s;
+}
+
+#vault-screen h1{
+    font-family:'Orbitron', monospace;
+    font-size:1.6rem;
+    font-weight:900;
+    letter-spacing:6px;
+    margin-bottom:6px;
+    text-shadow:0 0 20px #00ff41;
+}
+#vault-screen .subtitle{
+    font-size:0.7rem;
+    letter-spacing:3px;
+    color:#00ff4188;
+    margin-bottom:24px;
+}
+
+.neon{
+    font-family:'Orbitron', monospace;
+    font-size:2.4rem;
+    font-weight:700;
+    margin:20px 0;
+    letter-spacing:4px;
+    text-shadow:0 0 20px #00ff41;
+    min-height:60px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+#vault-input{
+    background:transparent;
+    border:1px solid #00ff41;
+    color:#00ff41;
+    padding:12px;
+    font-size:1.2rem;
+    text-align:center;
+    width:100%;
+    font-family:'Share Tech Mono', monospace;
+    letter-spacing:6px;
+    outline:none;
+    box-shadow:0 0 10px #00ff4144;
+}
+#vault-input:focus{box-shadow:0 0 20px #00ff41;}
+
+#vault-btn{
+    margin-top:14px;
+    background:#00ff41;
+    border:none;
+    padding:12px;
+    font-weight:bold;
+    cursor:pointer;
+    width:100%;
+    font-family:'Orbitron', monospace;
+    font-size:0.9rem;
+    letter-spacing:3px;
+    transition:0.2s;
+}
+#vault-btn:hover{background:#00cc33; box-shadow:0 0 20px #00ff41;}
+
+.progress{height:8px;background:#003300;margin-top:20px;border-radius:4px;overflow:hidden;}
+.progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#00ff41,#00cc88);transition:0.4s;}
+
+.shake{animation:shake 0.3s;}
+@keyframes shake{0%{transform:translate(0);}25%{transform:translate(-6px);}50%{transform:translate(6px);}75%{transform:translate(-6px);}100%{transform:translate(0);}}
+
+.timer-red{color:#ff003c;font-weight:bold;}
+
+.hud-row{display:flex;justify-content:space-between;margin-bottom:10px;font-size:0.85rem;letter-spacing:2px;}
+
+.phase-indicator{
+    display:flex;
+    gap:8px;
+    justify-content:center;
+    margin-bottom:18px;
+}
+.phase-dot{width:10px;height:10px;border-radius:50%;background:#003300;border:1px solid #00ff41;transition:0.3s;}
+.phase-dot.active{background:#00ff41;box-shadow:0 0 8px #00ff41;}
+.phase-dot.done{background:#00aa22;}
+
+/* =========== TRANSITION =========== */
+#transition-overlay{
+    position:fixed;
+    inset:0;
+    background:#050505;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.5s;
+}
+#transition-overlay.active{opacity:1;pointer-events:all;}
+#transition-msg{
+    font-family:'Orbitron', monospace;
+    font-size:2rem;
+    letter-spacing:8px;
+    color:#00ff41;
+    text-shadow:0 0 30px #00ff41;
+    text-align:center;
+}
+#transition-sub{
+    margin-top:16px;
+    font-size:0.8rem;
+    letter-spacing:4px;
+    color:#00ff4188;
+    text-align:center;
+}
+.loading-bar-wrap{width:300px;height:6px;background:#003300;margin-top:30px;border-radius:3px;overflow:hidden;}
+.loading-bar-fill{height:100%;width:0%;background:#00ff41;animation:loadFill 2.5s forwards ease-in-out;}
+@keyframes loadFill{from{width:0%;}to{width:100%;}}
+
+/* =========== MAZE SCREEN =========== */
+#maze-screen{
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+}
+
+.maze-hud{
+    display:flex;
+    gap:30px;
+    font-family:'Orbitron', monospace;
+    font-size:0.9rem;
+    letter-spacing:3px;
+    padding:10px 20px;
+    border:1px solid #00ff4166;
+    border-radius:6px;
+    background:#00110044;
+}
+.maze-hud span{color:#00ff41;}
+.maze-hud .label{color:#00ff4166; margin-right:6px;}
+
+#maze-grid{
+    display:grid;
+    grid-template-columns:repeat(21,28px);
+    grid-template-rows:repeat(21,28px);
+    gap:2px;
+    border:2px solid #00ff4144;
+    padding:4px;
+    box-shadow:0 0 30px #00ff4133;
+}
+
+.cell{
+    width:28px;height:28px;
+    display:flex;justify-content:center;align-items:center;
+    font-weight:bold;font-size:0.85rem;
+    transition:0.1s;
+    border-radius:2px;
+}
+.wall{background:#001a00;}
+.safe{background:#000d00; color:#00ff4133;}
+.player{background:#00ff41;color:#000;box-shadow:0 0 8px #00ff41;border-radius:50%;}
+.trap-cell{background:#000d00;}
+.trap-revealed{color:#ff9900 !important;}
+.exit-cell{background:#1a0006;color:#ff003c;box-shadow:0 0 8px #ff003c;}
+.dark-cell{background:#000;}
+
+.maze-msg{
+    font-family:'Orbitron', monospace;
+    font-size:0.75rem;
+    letter-spacing:3px;
+    color:#00ff4166;
+    text-align:center;
+}
+
+/* Mobile arrow controls */
+#touch-controls{
+    display:none;
+    grid-template-columns:repeat(3,50px);
+    grid-template-rows:repeat(2,50px);
+    gap:6px;
+    margin-top:8px;
+}
+.touch-btn{
+    background:#001a00;
+    border:1px solid #00ff4166;
+    color:#00ff41;
+    font-size:1.2rem;
+    cursor:pointer;
+    border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    transition:0.1s;
+}
+.touch-btn:active{background:#00ff4133;}
+@media(max-width:700px){
+    #touch-controls{display:grid;}
+    #maze-grid{
+        grid-template-columns:repeat(21,22px);
+        grid-template-rows:repeat(21,22px);
+    }
+    .cell{width:22px;height:22px;font-size:0.65rem;}
+}
+
+@keyframes glowPulse{0%,100%{box-shadow:0 0 8px #00ff41;}50%{box-shadow:0 0 20px #00ff41,0 0 40px #00ff41;}}
+@keyframes dangerPulse{0%,100%{box-shadow:0 0 8px #ff003c;}50%{box-shadow:0 0 20px #ff003c,0 0 40px #ff003c;}}
+</style>
+</head>
+<body>
+
+<!-- VAULT SCREEN -->
+<div id="vault-screen">
+    <h1>CYBER VAULT</h1>
+    <div class="subtitle">// HACK ASSAULT PROTOCOL //</div>
+
+    <div class="phase-indicator">
+        <div class="phase-dot" id="dot0"></div>
+        <div class="phase-dot" id="dot1"></div>
+        <div class="phase-dot" id="dot2"></div>
+    </div>
+
+    <div class="hud-row">
+        <div>TIME: <span id="vault-timer" class="timer-red">45</span>s</div>
+        <div>LIVES: <span id="vault-lives">❤❤❤</span></div>
+        <div>ROUND: <span id="vault-round">0</span>/3</div>
+    </div>
+
+    <div id="vault-display" class="neon">READY</div>
+    <p id="vault-status" style="letter-spacing:2px;font-size:0.85rem;color:#00ff4188;">Press START to begin hack</p>
+
+    <input id="vault-input" style="display:none;" placeholder="ENTER KEY" autocomplete="off" spellcheck="false">
+    <button id="vault-btn" onclick="vaultStart()">▶ START HACK</button>
+
+    <div class="progress">
+        <div id="vault-progress" class="progress-bar"></div>
+    </div>
+</div>
+
+<!-- TRANSITION -->
+<div id="transition-overlay">
+    <div id="transition-msg">VAULT BREACHED</div>
+    <div id="transition-sub">INITIALIZING STEALTH MAZE PROTOCOL...</div>
+    <div class="loading-bar-wrap"><div class="loading-bar-fill"></div></div>
+</div>
+
+<!-- MAZE SCREEN -->
+<div id="maze-screen">
+    <div class="maze-hud">
+        <div><span class="label">LIVES</span><span id="maze-lives">❤❤❤</span></div>
+        <div><span class="label">TIME</span><span id="maze-timer">60</span>s</div>
+        <div><span class="label">MOVES</span><span id="maze-moves">0</span></div>
+    </div>
+    <div id="maze-grid"></div>
+    <div class="maze-msg">WASD / ARROW KEYS — REACH THE EXIT [X] — AVOID TRAPS [!]</div>
+    <div id="touch-controls">
+        <div></div>
+        <button class="touch-btn" onclick="mazeMovePlayer(0,-1)">▲</button>
+        <div></div>
+        <button class="touch-btn" onclick="mazeMovePlayer(-1,0)">◀</button>
+        <button class="touch-btn" onclick="mazeMovePlayer(0,1)">▼</button>
+        <button class="touch-btn" onclick="mazeMovePlayer(1,0)">▶</button>
+    </div>
+</div>
+
+<script>
+// ==================== VAULT ====================
+const ALPHABET = "abcdefghijklmnopqrstuvwxyz";
+let vaultSecret = "", vaultRound = 0, vaultLives = 3, vaultTime = 45, vaultInterval;
+
+const vDisplay = document.getElementById("vault-display");
+const vStatus = document.getElementById("vault-status");
+const vInput = document.getElementById("vault-input");
+const vBtn = document.getElementById("vault-btn");
+const vTimerEl = document.getElementById("vault-timer");
+const vProgressEl = document.getElementById("vault-progress");
+
+function updateVaultLives(){ document.getElementById("vault-lives").innerText = "❤".repeat(vaultLives); }
+function updateVaultRound(){ document.getElementById("vault-round").innerText = vaultRound; }
+
+function vaultGenerate(len){
+    let r = "";
+    for(let i=0;i<len;i++) r += ALPHABET[Math.floor(Math.random()*ALPHABET.length)];
+    return r;
+}
+
+function vaultStart(){
+    vBtn.style.display = "none";
+    vaultInterval = setInterval(()=>{
+        vaultTime--;
+        vTimerEl.innerText = vaultTime;
+        if(vaultTime <= 0) vaultEnd(false);
+    }, 1000);
+    vaultNextRound();
+}
+
+function vaultNextRound(){
+    vaultRound++;
+    updateVaultRound();
+    if(vaultRound > 3){ vaultEnd(true); return; }
+
+    // Update dots
+    for(let i=0;i<3;i++){
+        const dot = document.getElementById("dot"+i);
+        dot.className = "phase-dot";
+        if(i < vaultRound-1) dot.classList.add("done");
+        else if(i === vaultRound-1) dot.classList.add("active");
+    }
+
+    let len = 4 + vaultRound;
+    vaultSecret = vaultGenerate(len);
+    vStatus.innerText = "⚡ MEMORIZE THE KEY ⚡";
+    vDisplay.innerText = vaultSecret;
+    vDisplay.style.color = "#00ff41";
+
+    // Countdown while showing key: round 1=8s, round 2=5s, round 3=3s
+    const memorizeSeconds = [6, 5, 4];
+    let countdown = memorizeSeconds[vaultRound - 1] || 3;
+    vStatus.innerText = `⚡ MEMORIZE THE KEY ⚡ (${countdown}s)`;
+    const countInt = setInterval(()=>{
+        countdown--;
+        if(countdown <= 0){
+            clearInterval(countInt);
+            // Short scramble before hiding
+            let scrambleCount = 0;
+            const scrambleInt = setInterval(()=>{
+                if(scrambleCount++ > 6){ clearInterval(scrambleInt); hideVaultKey(); }
+                else{
+                    let fake = "";
+                    for(let i=0;i<vaultSecret.length;i++)
+                        fake += ALPHABET[Math.floor(Math.random()*ALPHABET.length)];
+                    vDisplay.innerText = fake;
+                }
+            }, 80);
+        } else {
+            vStatus.innerText = `⚡ MEMORIZE THE KEY ⚡ (${countdown}s)`;
+        }
+    }, 1000);
+
+    setTimeout(()=>{}, 5000); // placeholder, logic handled by countInt
+}
+
+function hideVaultKey(){
+    vDisplay.innerText = "?".repeat(vaultSecret.length);
+    vStatus.innerText = "ENTER THE KEY";
+    vInput.style.display = "block";
+    vInput.value = "";
+    vBtn.innerText = "▶ SUBMIT";
+    vBtn.style.display = "block";
+    vBtn.onclick = vaultCheck;
+    vInput.focus();
+}
+
+function vaultCheck(){
+    if(vInput.value.toLowerCase() === vaultSecret){
+        vProgressEl.style.width = (vaultRound/3*100)+"%";
+        vInput.value = "";
+        vInput.style.display = "none";
+        vBtn.style.display = "none";
+        vStatus.innerText = "✓ ACCESS GRANTED";
+        vDisplay.innerText = "OK";
+        vDisplay.style.color = "#00ff41";
+        setTimeout(vaultNextRound, 900);
+    } else {
+        vaultLives--;
+        updateVaultLives();
+        document.getElementById("vault-screen").classList.add("shake");
+        setTimeout(()=>document.getElementById("vault-screen").classList.remove("shake"), 300);
+
+        if(vaultLives <= 0){
+            vDisplay.innerText = "WRONG";
+            vDisplay.style.color = "#ff003c";
+            vInput.value = "";
+            vaultEnd(false);
+            return;
+        }
+
+        // Re-show duration shrinks with remaining lives: 3→5s, 2→3s, 1→2s
+        const reshowDurations = { 3: 5, 2: 3, 1: 2 };
+        let reshowTime = reshowDurations[vaultLives] || 2;
+
+        // Disable input while re-showing
+        vInput.disabled = true;
+        vBtn.disabled = true;
+        vBtn.style.opacity = "0.4";
+        vInput.value = "";
+
+        // Flash WRONG briefly, then reveal the key
+        vDisplay.innerText = "✗ WRONG";
+        vDisplay.style.color = "#ff003c";
+
+        setTimeout(()=>{
+            // Show the password with orange colour + live countdown in status
+            vDisplay.innerText = vaultSecret;
+            vDisplay.style.color = "#ffaa00";
+            vDisplay.style.textShadow = "0 0 20px #ffaa00, 0 0 40px #ff6600";
+            vStatus.innerText = `⚠ PENALTY: KEY RE-SHOWN — MEMORIZE (${reshowTime}s)`;
+            vStatus.style.color = "#ffaa00";
+
+            const reshowInt = setInterval(()=>{
+                reshowTime--;
+                if(reshowTime <= 0){
+                    clearInterval(reshowInt);
+                    // Scramble then re-hide
+                    let sc = 0;
+                    const scrambleInt = setInterval(()=>{
+                        if(sc++ > 5){
+                            clearInterval(scrambleInt);
+                            // Re-hide the key
+                            vDisplay.innerText = "?".repeat(vaultSecret.length);
+                            vDisplay.style.color = "#00ff41";
+                            vDisplay.style.textShadow = "0 0 20px #00ff41";
+                            vStatus.innerText = "ENTER THE KEY";
+                            vStatus.style.color = "#00ff4188";
+                            // Re-enable input
+                            vInput.disabled = false;
+                            vBtn.disabled = false;
+                            vBtn.style.opacity = "1";
+                            vInput.focus();
+                        } else {
+                            let fake = "";
+                            for(let i=0;i<vaultSecret.length;i++)
+                                fake += ALPHABET[Math.floor(Math.random()*ALPHABET.length)];
+                            vDisplay.innerText = fake;
+                            vDisplay.style.color = "#ff6600";
+                        }
+                    }, 80);
+                } else {
+                    vStatus.innerText = `⚠ PENALTY: KEY RE-SHOWN — MEMORIZE (${reshowTime}s)`;
+                }
+            }, 1000);
+        }, 500);
+    }
+}
+
+// Allow Enter key to submit
+document.getElementById("vault-input").addEventListener("keydown", e => {
+    if(e.key === "Enter" && vBtn.onclick === vaultCheck) vaultCheck();
+});
+
+function vaultEnd(win){
+    clearInterval(vaultInterval);
+    vInput.style.display = "none";
+    if(win){
+        vDisplay.innerText = "BREACHED";
+        vStatus.innerText = "VAULT DECRYPTED — LAUNCHING MAZE...";
+        vProgressEl.style.width = "100%";
+        setTimeout(launchMaze, 1200);
+    } else {
+        vDisplay.innerText = "DENIED";
+        vDisplay.style.color = "#ff003c";
+        vStatus.innerText = "MISSION FAILED";
+        vBtn.innerText = "↺ RETRY";
+        vBtn.style.display = "block";
+        vBtn.onclick = ()=>location.reload();
+    }
+}
+
+// ==================== TRANSITION ====================
+function launchMaze(){
+    const overlay = document.getElementById("transition-overlay");
+    overlay.classList.add("active");
+    // After animation, show maze
+    setTimeout(()=>{
+        document.getElementById("vault-screen").style.display = "none";
+        overlay.classList.remove("active");
+        const mazeScreen = document.getElementById("maze-screen");
+        mazeScreen.style.display = "flex";
+        initMaze();
+    }, 3200);
+}
+
+// ==================== MAZE ====================
+const ROWS=21, COLS=21;
+let mazeGrid, playerPos, revealedTraps, mazeLives, mazeTime, mazeInterval, mazeMoves;
+
+function initMaze(){
+    mazeLives = 3;
+    mazeTime = 60;
+    mazeMoves = 0;
+    revealedTraps = [];
+    playerPos = {x:1,y:1};
+    updateMazeHUD();
+    mazeGrid = generateMaze();
+    drawMaze();
+    mazeInterval = setInterval(()=>{
+        mazeTime--;
+        document.getElementById("maze-timer").innerText = mazeTime;
+        if(mazeTime <= 0){ clearInterval(mazeInterval); mazeGameOver(false); }
+    }, 1000);
+}
+
+function updateMazeHUD(){
+    document.getElementById("maze-lives").innerText = "❤".repeat(Math.max(0, mazeLives));
+    document.getElementById("maze-moves").innerText = mazeMoves;
+}
+
+function generateMaze(){
+    let maze = Array.from({length:ROWS}, ()=>Array(COLS).fill(0));
+
+    function shuffle(arr){ return arr.sort(()=>Math.random()-0.5); }
+
+    function carve(x,y){
+        maze[y][x] = 1;
+        const dirs = shuffle([[0,-2],[0,2],[-2,0],[2,0]]);
+        for(const [dx,dy] of dirs){
+            const nx=x+dx, ny=y+dy;
+            if(nx>0&&nx<COLS&&ny>0&&ny<ROWS&&maze[ny][nx]===0){
+                maze[y+dy/2][x+dx/2] = 1;
+                carve(nx,ny);
+            }
+        }
+    }
+    carve(1,1);
+
+    let maxDist=0, exitPos={x:1,y:1};
+    for(let y=1;y<ROWS;y+=2){
+        for(let x=1;x<COLS;x+=2){
+            if(maze[y][x]===1){
+                const dist=Math.abs(x-1)+Math.abs(y-1);
+                if(dist>maxDist){ maxDist=dist; exitPos={x,y}; }
+            }
+        }
+    }
+    maze[exitPos.y][exitPos.x] = 3;
+
+    // BFS safe path
+    function bfsPath(){
+        let visited=Array.from({length:ROWS},()=>Array(COLS).fill(false));
+        let parent=Array.from({length:ROWS},()=>Array(COLS).fill(null));
+        let queue=[{x:1,y:1}]; visited[1][1]=true;
+        while(queue.length){
+            let {x,y}=queue.shift();
+            if(x===exitPos.x&&y===exitPos.y) break;
+            for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]){
+                let nx=x+dx,ny=y+dy;
+                if(nx>=0&&nx<COLS&&ny>=0&&ny<ROWS&&maze[ny][nx]!==0&&!visited[ny][nx]){
+                    visited[ny][nx]=true; parent[ny][nx]={x,y}; queue.push({x:nx,y:ny});
+                }
+            }
+        }
+        let path=[],curr={x:exitPos.x,y:exitPos.y};
+        while(curr){ path.push(curr); curr=parent[curr.y][curr.x]; }
+        return path;
+    }
+    const safePath = bfsPath();
+
+    // Traps off safe path
+    let placed=0, attempts=0;
+    while(placed < Math.floor(ROWS*COLS*0.08) && attempts<5000){
+        attempts++;
+        let tx=Math.floor(Math.random()*COLS), ty=Math.floor(Math.random()*ROWS);
+        if(maze[ty][tx]===1 && !safePath.some(c=>c.x===tx&&c.y===ty) && !(tx===1&&ty===1)){
+            maze[ty][tx]=2; placed++;
+        }
+    }
+    return maze;
+}
+
+const VISION = 4;
+
+function drawMaze(){
+    const grid = document.getElementById("maze-grid");
+    grid.innerHTML = "";
+
+    // Check near trap
+    let nearTrap = false;
+    for(let tx=-1;tx<=1;tx++){
+        for(let ty=-1;ty<=1;ty++){
+            const cx=playerPos.x+tx, cy=playerPos.y+ty;
+            if(cx>=0&&cx<COLS&&cy>=0&&cy<ROWS&&mazeGrid[cy][cx]===2) nearTrap=true;
+        }
+    }
+
+    for(let y=0;y<ROWS;y++){
+        for(let x=0;x<COLS;x++){
+            const div = document.createElement("div");
+            div.classList.add("cell");
+            const dist = Math.abs(playerPos.x-x) + Math.abs(playerPos.y-y);
+
+            if(dist > VISION){
+                div.classList.add("dark-cell");
+                grid.appendChild(div); continue;
+            }
+
+            const cell = mazeGrid[y][x];
+
+            if(playerPos.x===x && playerPos.y===y){
+                div.classList.add("player");
+                div.innerText = "◉";
+                div.style.animation = nearTrap
+                    ? "dangerPulse 0.4s infinite"
+                    : "glowPulse 1.5s infinite";
+            } else if(cell===0){
+                div.classList.add("wall");
+            } else if(cell===1){
+                div.classList.add("safe");
+                div.innerText = "·";
+            } else if(cell===2){
+                div.classList.add("trap-cell");
+                if(revealedTraps.some(c=>c.x===x&&c.y===y)){
+                    div.classList.add("trap-revealed");
+                    div.innerText = "⚡";
+                } else if(nearTrap && Math.abs(playerPos.x-x)+Math.abs(playerPos.y-y)<=1){
+                    div.innerText = "?";
+                    div.style.color="#ff990066";
+                } else {
+                    div.innerText = "·";
+                }
+            } else if(cell===3){
+                div.classList.add("exit-cell");
+                div.innerText = "⬡";
+            }
+            grid.appendChild(div);
+        }
+    }
+}
+
+function mazeMovePlayer(dx,dy){
+    const nx=playerPos.x+dx, ny=playerPos.y+dy;
+    if(nx<0||nx>=COLS||ny<0||ny>=ROWS||mazeGrid[ny][nx]===0) return;
+    playerPos = {x:nx,y:ny};
+    mazeMoves++;
+    updateMazeHUD();
+    const cell = mazeGrid[ny][nx];
+    if(cell===2){
+        mazeLives--;
+        revealedTraps.push({x:nx,y:ny});
+        updateMazeHUD();
+        if(mazeLives<=0){ drawMaze(); setTimeout(()=>mazeGameOver(false), 300); return; }
+    }
+    if(cell===3){ drawMaze(); setTimeout(()=>mazeGameOver(true),200); return; }
+    drawMaze();
+}
+
+document.addEventListener("keydown", e=>{
+    if(document.getElementById("maze-screen").style.display!=="flex") return;
+    switch(e.key){
+        case "ArrowUp": case "w": case "W": mazeMovePlayer(0,-1); break;
+        case "ArrowDown": case "s": case "S": mazeMovePlayer(0,1); break;
+        case "ArrowLeft": case "a": case "A": mazeMovePlayer(-1,0); break;
+        case "ArrowRight": case "d": case "D": mazeMovePlayer(1,0); break;
+    }
+});
+
+function mazeGameOver(win){
+    clearInterval(mazeInterval);
+    const overlay = document.getElementById("transition-overlay");
+    const msg = document.getElementById("transition-msg");
+    const sub = document.getElementById("transition-sub");
+    overlay.classList.add("active");
+
+    if(win){
+        msg.innerText = "🎉 SYSTEM BREACHED";
+        msg.style.color = "#00ff41";
+        sub.innerText = "CIA MAINFRAME COMPROMISED — MISSION COMPLETE";
+    } else {
+        msg.innerText = "💀 MISSION FAILED";
+        msg.style.color = "#ff003c";
+        sub.innerText = "AGENT COMPROMISED — RESTARTING PROTOCOL";
+    }
+
+    // Swap loading bar to just a restart button after 2s
+    setTimeout(()=>{
+        overlay.innerHTML += `<button onclick="location.reload()" style="margin-top:30px;background:#00ff41;border:none;padding:12px 30px;font-family:'Orbitron',monospace;font-size:0.9rem;letter-spacing:3px;cursor:pointer;border-radius:4px;">↺ RESTART</button>`;
+    }, 2000);
+}
+</script>
+</body>
+</html>

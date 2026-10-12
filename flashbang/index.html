@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cinematic Flashbang + Blackout Nightmare v2</title>
+<style>
+html,body{margin:0;height:100%;background:#0a0f1c;color:#00ffcc;font-family:consolas,monospace;overflow:hidden;transition:background 5s ease-in-out}
+#stage{height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+button{padding:15px 30px;margin:8px;background:#111;border:2px solid #00ffcc;color:#00ffcc;cursor:pointer;font:inherit;font-size:18px;transition:.2s}
+button:hover{background:#00ffcc;color:#000;box-shadow:0 0 25px #00ffcc}
+button:active{transform:scale(.94)}
+#restart{border-color:#ff3366;color:#ff3366}
+#restart:hover{background:#ff3366;color:#000;box-shadow:0 0 25px #ff3366}
+.opts{font-size:13px;margin-top:6px}
+.opts label{margin:0 10px}
+select{background:#111;color:#00ffcc;border:2px solid #00ffcc;font:inherit;padding:6px 10px;cursor:pointer}
+#status{margin-top:16px;min-height:20px;font-size:14px;opacity:.85}
+#warn{position:fixed;bottom:10px;font-size:12px;color:#ffcc00;width:100%;text-align:center}
+#cd{position:fixed;inset:0;display:flex;justify-content:center;align-items:center;font-size:200px;font-weight:bold;color:red;opacity:0;text-shadow:0 0 60px red;z-index:1001;pointer-events:none}
+.fx{position:fixed;inset:0;pointer-events:none;opacity:0}
+#flash{background:#fff;z-index:999}
+#vig{background:radial-gradient(circle,rgba(0,0,0,0) 40%,rgba(0,0,0,.85) 100%);z-index:1000}
+#after{background:radial-gradient(circle at 50% 50%,rgba(120,0,255,.75) 0,rgba(0,0,0,.7) 14%,rgba(0,0,0,0) 32%);z-index:1000;mix-blend-mode:multiply}
+#dis{background:repeating-linear-gradient(0deg,rgba(255,255,255,.08) 0 2px,rgba(0,0,0,0) 2px 4px);z-index:1002;mix-blend-mode:overlay;animation:dis .08s infinite linear}
+@keyframes dis{0%{background-position:0 0}50%{background-position:0 4px}100%{background-position:0 0}}
+
+/* mobile fit */
+html,body{height:100%;height:100dvh}
+#stage{box-sizing:border-box;height:100%;height:100dvh;padding:16px 14px calc(44px + env(safe-area-inset-bottom,0px));max-width:100vw;overflow:hidden}
+h1{font-size:clamp(18px,6vw,32px);letter-spacing:2px;max-width:100%;overflow-wrap:anywhere}
+button{max-width:100%;font-size:clamp(14px,4.5vw,18px)!important;padding:12px 18px!important}
+label{display:inline-block;max-width:100%;margin:4px 8px}
+select{max-width:100%;width:min(92vw,360px);box-sizing:border-box;text-overflow:ellipsis;font-size:14px}
+#status{max-width:92vw;overflow-wrap:anywhere;padding:0 6px}
+#warn{box-sizing:border-box;padding:0 12px calc(8px + env(safe-area-inset-bottom,0px));bottom:0!important}
+#cd{font-size:min(200px,40vw)!important}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div>
+    <button id="go">💥 TRIGGER CINEMATIC NIGHTMARE</button>
+    <button id="restart">⟲ RESTART</button>
+  </div>
+  <div class="opts">
+    <label>Mode <select id="mode">
+      <option value="classic">Classic: one bang</option>
+      <option value="double">Double Tap: second bang hits harder after you recover</option>
+      <option value="shell">Shell Shock: slow, swaying, hard to clear</option>
+      <option value="barrage">Barrage: 11 neon bangs, machine-gun rhythm</option>
+    </select></label>
+    <label><input id="snd" type="checkbox" checked> Sound</label>
+  </div>
+  <div id="status">Ready. Press the button or Space.</div>
+</div>
+<div id="warn">⚠ Contains flashing lights and screen shake. Press Esc to abort.</div>
+<div id="cd"></div>
+<div id="flash" class="fx"></div>
+<div id="vig" class="fx"></div>
+<div id="after" class="fx"></div>
+<div id="dis" class="fx"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const stage=$('stage'),flash=$('flash'),vig=$('vig'),dis=$('dis'),after=$('after'),cd=$('cd'),st=$('status');
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const I=()=>reduced?1:2;
+let dur=4800,clickP=.12,sway=0,pow=1,pending=null,lock=false,burst=false,tag='',bangN=0;
+const HUES=['#ffffff','#00f0ff','#ff0040','#ffffff','#ff00e6','#ffee00','#3a00ff','#ffffff'];
+let hue=0;
+let T=[],raf=0,b=0,blind=false,running=false,last=0,anims=[],ac=null,ring=null;
+const at=(ms,f)=>T.push(setTimeout(f,ms));
+
+function audio(){return ac=ac||new (window.AudioContext||window.webkitAudioContext)()}
+function beep(freq,dur,vol){
+  if(!$('snd').checked)return;
+  const c=audio(),o=c.createOscillator(),g=c.createGain();
+  o.type='square';o.frequency.value=freq;g.gain.value=vol;
+  o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+dur);
+}
+function startRing(){
+  if(!$('snd').checked)return;
+  const c=audio(),o=c.createOscillator(),g=c.createGain();
+  o.frequency.value=3900;g.gain.value=0;o.connect(g);g.connect(c.destination);o.start();
+  ring={o,g};
+}
+function stopRing(){if(ring){try{ring.o.stop()}catch(e){}ring=null}}
+
+function shake(amp,dur){
+  const f=[];
+  for(let i=0;i<12;i++)f.push({transform:`translate(${(Math.random()-.5)*amp}px,${(Math.random()-.5)*amp}px) rotate(${(Math.random()-.5)*amp/6}deg)`});
+  f.push({transform:'none'});
+  anims.push(stage.animate(f,{duration:dur}));
+}
+
+function loop(t){
+  const dt=Math.min(50,t-last);last=t;
+  if(blind){
+    b=Math.max(0,b-dt/dur);
+    const n=I()*pow;
+    const fo=Math.min(reduced?.5:1,Math.max(0,b*1.7-.15));
+    flash.style.opacity=(burst&&!reduced&&Math.random()<.3)?1:fo; // strobe
+    stage.style.filter=`blur(${b*5*n*(sway?1+.6*Math.sin(t/350):1)}px) ${burst?`saturate(${1+b*4}) hue-rotate(${hue}deg)`:`grayscale(${b*60}%)`} contrast(${1+b*.4})`;
+    vig.style.opacity=b;
+    after.style.opacity=b*.95;
+    dis.style.opacity=b*.55;
+    const j=b*b*7*n;
+    stage.style.transform=`translate(${(Math.random()-.5)*j}px,${(Math.random()-.5)*j}px) rotate(${(Math.random()-.5)*j/8+(sway?Math.sin(t/500)*b*8:0)}deg)`;
+    if(ring)ring.g.gain.value=b*.03;
+    st.textContent=b>.02?`${tag?tag+'  ':''}BLIND ${Math.round(b*100)}%  - click to rub your eyes`:'';
+    if(pending&&b<.2){ // vision almost back (under 20% blind): boom
+      const f=pending;pending=null;
+      st.textContent='Almost... visible...';
+      at(150,f);
+    }
+    if(b<=.02){blind=false;finish()}
+  }
+  raf=requestAnimationFrame(loop);
+}
+
+function clearFx(){
+  stopRing();vig.style.background='';
+  ['flash','vig','after','dis'].forEach(id=>$(id).style.opacity=0);
+  stage.style.filter='none';stage.style.transform='none';
+}
+function finish(){
+  stopRing();vig.style.background='';
+  ['flash','vig','after','dis'].forEach(id=>$(id).style.opacity=0);
+  stage.style.filter='none';stage.style.transform='none';
+  running=false;
+  st.textContent='Vision restored. Hit RESTART to go again.';
+}
+
+function reset(){
+  T.forEach(clearTimeout);T=[];
+  anims.forEach(a=>a.cancel());anims=[];
+  cancelAnimationFrame(raf);stopRing();
+  b=0;blind=false;running=false;dur=4800;clickP=.12;sway=0;pow=1;pending=null;lock=false;burst=false;tag='';bangN=0;flash.style.background='#fff';vig.style.background='';
+  ['flash','vig','after','dis'].forEach(id=>$(id).style.opacity=0);
+  cd.style.opacity=0;
+  stage.style.filter='none';stage.style.transform='none';
+  document.body.style.transition='none';document.body.style.background='#0a0f1c';
+  st.textContent='Ready. Press the button or Space.';
+}
+
+function bang(p=1){
+  pow=p;
+  if(p>1&&!lock){dur=7000;clickP=.08}
+  if(burst){
+    const i=bangN++,c=HUES[i%HUES.length];flash.style.background=c;hue=Math.random()*360|0;
+    vig.style.background=`radial-gradient(circle,rgba(0,0,0,0) 20%,${c==='#ffffff'?'#000000e6':c+'e6'} 100%)`;
+    beep(180+p*160,.15,.07);beep(90,.3,.1*p);
+    anims.push(stage.animate([{transform:`scale(${1+.12*p})`},{transform:'scale(1)'}],{duration:260,easing:'ease-out'}));
+    anims.push(document.body.animate([{background:'#fff'},{background:'#000'}],{duration:180}));
+  }
+  beep(120,.25,.12*p);beep(60,.4,.15*p);if(p>1)beep(3900,.3,.04);
+  document.body.style.transition='none';document.body.style.background='#000';
+  b=1;blind=true;
+  at(50,()=>{document.body.style.transition='background 5s ease-in-out';document.body.style.background='#0a0f1c'});
+  shake(90*I()*p,500+(p>1?400:0));
+  if(p>1)at(350,()=>shake(70*I(),400));
+  if(!ring)startRing();
+}
+function ticks(n,gap,done){
+  for(let i=0;i<n;i++)at(i*gap,()=>{
+    const num=n-i;cd.textContent=num;
+    anims.push(cd.animate([{opacity:1,transform:'scale(2.6)'},{opacity:.9,transform:'scale(1)'},{opacity:0,transform:'scale(.8)'}],{duration:gap-50,easing:'ease-out'}));
+    beep(500+i*250,.12,.05);
+    shake((12+i*14)*I(),300);
+    st.textContent=num===1?'FLASHBANG OUT!':'Incoming...';
+  });
+  at(n*gap,done);
+}
+const modes={
+  classic(){ticks(3,900,bang)},
+  double(){ticks(3,800,()=>{bang();pending=()=>{st.textContent='SECOND BANG!';bang(1.6)}})},
+  shell(){dur=9000;clickP=.05;sway=1;ticks(3,1400,bang)},
+  barrage(){
+    dur=5500;clickP=.15;lock=true;burst=true;
+    ticks(2,400,()=>{
+      // rhythm speeds up like a machine gun, then one final mega bang
+      const gaps=[0,520,950,1300,1600,1850,2050,2230,2390,2530,3200];
+      gaps.forEach((g,i)=>at(g,()=>{tag=`BANG ${i+1}/${gaps.length}`;bang(1+i*.16);if(i===gaps.length-1)at(300,()=>{shake(160,700);tag=''})}));
+    });
+  }
+};
+function run(){
+  if(running)return;
+  running=true;
+  document.body.style.transition='none';document.body.style.background='#000';
+  last=performance.now();raf=requestAnimationFrame(loop);
+  if(ac&&ac.state==='suspended')ac.resume();
+  modes[$('mode').value]();
+}
+
+$('go').onclick=run;
+$('restart').onclick=()=>{reset();run()};
+onkeydown=e=>{
+  if(e.code==='Space'){e.preventDefault();running?$('restart').click():run()}
+  if(e.code==='Escape')reset();
+};
+// Rub your eyes: every click clears some blindness
+onpointerdown=e=>{
+  if(!blind||e.target.closest('button,label,select'))return;
+  b=Math.max(0,b-clickP);
+  shake(14*I(),150);
+};
+</script>
+</body>
+</html>

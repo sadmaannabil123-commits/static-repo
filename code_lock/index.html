@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Vault Heist: The Final Breach</title>
+<style>
+body{
+    margin:0;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background: #000;
+    font-family:'Courier New',monospace;
+    color:white;
+    overflow: hidden;
+}
+
+/* DECODING BACKGROUND (PSYCH WARFARE) */
+#canvas-back {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 2s;
+}
+
+/* SCAN LINE GLITCH */
+#glitch-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 100;
+}
+.scan-line {
+    position: absolute;
+    width: 100%;
+    height: 10px;
+    background: rgba(0, 255, 213, 0.4);
+    box-shadow: 0 0 20px cyan;
+    animation: scan 2s linear infinite;
+}
+@keyframes scan { 0% { top: -20px; } 100% { top: 100%; } }
+
+/* EARTHQUAKE */
+.jitter { animation: earthquake 0.12s infinite; }
+@keyframes earthquake {
+    0% { transform: translate(1px, 1px); }
+    50% { transform: translate(-1px, -1px); }
+    100% { transform: translate(1px, -1px); }
+}
+
+.card {
+    background:rgba(0,0,0,0.92);
+    backdrop-filter:blur(10px);
+    padding:30px;
+    border-radius:20px;
+    border: 2px solid #00eaff;
+    box-shadow:0 0 40px rgba(0, 234, 255, 0.5);
+    width:420px;
+    text-align:center;
+    position: relative;
+    z-index: 200;
+    transition: transform 0.6s, opacity 0.6s;
+}
+
+/* VAULT ANIMATIONS */
+.vault-open { transform: scale(1.1) rotateY(10deg); border-color: #00ff88; box-shadow: 0 0 100px #00ff88; }
+.vault-fail { transform: scale(0.9); border-color: #ff4444; box-shadow: 0 0 100px #ff4444; filter: grayscale(1) blur(2px); }
+
+.bar-bg { width: 100%; height: 10px; background: #111; border-radius: 5px; overflow: hidden; margin-bottom: 5px; }
+#bar-fill { width: 100%; height: 100%; background: #00ff88; transition: 0.4s; }
+.bar-label { display: flex; justify-content: space-between; font-size: 10px; color: cyan; margin-bottom: 15px; }
+
+.slots { display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; }
+.slot {
+    width: 55px; height: 65px; border-radius: 10px; border: 2px solid cyan;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 26px; background: #000; box-shadow: 0 0 10px cyan inset;
+}
+
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.key {
+    padding: 12px; border-radius: 8px; border: 1px solid cyan;
+    background: #111; color: white; cursor: pointer; font-size: 18px; transition: 0.1s;
+}
+.key:hover { background: cyan; color: black; }
+
+#submit {
+    width: 100%; padding: 12px; margin-top: 15px; background: cyan;
+    border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
+}
+
+.legend {
+    margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; font-size: 11px; text-align: left; border-top: 1px solid #333; padding-top: 10px;
+}
+.help-item { display: flex; align-items: center; gap: 5px; }
+.dot { width: 10px; height: 10px; border-radius: 2px; }
+
+.status { margin: 10px 0; font-weight: bold; font-size: 14px; min-height: 20px; }
+#results { max-height: 100px; overflow-y: auto; margin-top: 10px; }
+.res-row { display: flex; justify-content: center; gap: 5px; margin-bottom: 4px; }
+.res-box { width: 25px; height: 25px; border-radius: 4px; display: flex; justify-content: center; align-items: center; font-size: 12px; }
+
+.green { background: #00ff88; color: black; }
+.yellow { background: yellow; color: black; }
+.red { background: #ff4444; color: white; }
+
+/* FINAL OVERLAY MESSAGES */
+#final-msg {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 50px; font-weight: bold; pointer-events: none; z-index: 300;
+    text-shadow: 0 0 20px #000; display: none; text-align: center; width: 100%;
+}
+</style>
+</head>
+<body id="main-body">
+
+<canvas id="canvas-back"></canvas>
+<div id="glitch-overlay"><div class="scan-line"></div></div>
+<div id="final-msg"></div>
+
+<div class="card" id="game-card">
+    <h1>SECURE TERMINAL v4.0</h1>
+
+    <div class="bar-bg"><div id="bar-fill"></div></div>
+    <div class="bar-label">
+        <span>INTEGRITY</span>
+        <span id="count-label">REMAINING: 10</span>
+    </div>
+
+    <div class="slots">
+        <div class="slot" id="s0"></div>
+        <div class="slot" id="s1"></div>
+        <div class="slot" id="s2"></div>
+        <div class="slot" id="s3"></div>
+    </div>
+
+    <div class="keypad">
+        <div class="key" onclick="press(1)">1</div><div class="key" onclick="press(2)">2</div><div class="key" onclick="press(3)">3</div>
+        <div class="key" onclick="press(4)">4</div><div class="key" onclick="press(5)">5</div><div class="key" onclick="press(6)">6</div>
+        <div class="key" onclick="press(7)">7</div><div class="key" onclick="press(8)">8</div><div class="key" onclick="press(9)">9</div>
+        <div class="key" style="background:#222" onclick="clearSlots()">C</div>
+        <div class="key" onclick="press(0)">0</div>
+        <div class="key" style="background:#222" onclick="deleteLast()">⌫</div>
+    </div>
+
+    <button id="submit" onclick="submitGuess()">BYPASS FIREWALL</button>
+    <div class="status" id="status">ENCRYPTION ACTIVE</div>
+    <div id="results"></div>
+
+    <div class="legend">
+        <div class="help-item"><div class="dot green"></div> <span>MATCH</span></div>
+        <div class="help-item"><div class="dot yellow"></div> <span>MISPLACED</span></div>
+        <div class="help-item"><div class="dot red"></div> <span>WRONG</span></div>
+        <div class="help-item"><span>⚠️ 10 MAX</span></div>
+    </div>
+</div>
+
+<script>
+let code = [];
+while(code.length<4){
+    let n = Math.floor(Math.random()*10);
+    if(!code.includes(n)) code.push(n);
+}
+
+let current = [];
+let attempts = 0;
+const MAX = 10;
+let isGameOver = false;
+
+// KEYBOARD SUPPORT
+document.addEventListener('keydown', (e) => {
+    if(isGameOver) return;
+    if(e.key >= '0' && e.key <= '9') press(parseInt(e.key));
+    if(e.key === 'Backspace') deleteLast();
+    if(e.key === 'Enter') submitGuess();
+});
+
+function press(n){ if(current.length < 4) { current.push(n); update(); }}
+function deleteLast(){ current.pop(); update(); }
+function clearSlots(){ current = []; update(); }
+function update(){
+    for(let i=0; i<4; i++) document.getElementById('s'+i).innerText = current[i] !== undefined ? current[i] : "";
+}
+
+function submitGuess(){
+    if(current.length < 4 || isGameOver) return;
+    attempts++;
+    
+    let remaining = MAX - attempts;
+    let bar = document.getElementById('bar-fill');
+    bar.style.width = (remaining * 10) + "%";
+    document.getElementById('count-label').innerText = "REMAINING: " + remaining;
+
+    if(attempts >= 5){
+        document.getElementById('glitch-overlay').style.display = 'block';
+        document.getElementById('canvas-back').style.opacity = "0.4";
+        startMatrix();
+    }
+    if(attempts >= 8){
+        document.getElementById('game-card').classList.add('jitter');
+        bar.style.background = "#ff4444";
+    }
+
+    let row = document.createElement('div');
+    row.className = 'res-row';
+    let winCount = 0;
+    
+    for(let i=0; i<4; i++){
+        let b = document.createElement('div');
+        b.className = 'res-box';
+        if(current[i] === code[i]){ b.classList.add('green'); winCount++; }
+        else if(code.includes(current[i])){ b.classList.add('yellow'); }
+        else { b.classList.add('red'); }
+        b.innerText = current[i];
+        row.appendChild(b);
+    }
+    document.getElementById('results').prepend(row);
+
+    // WIN CONDITION
+    if(winCount === 4){
+        isGameOver = true;
+        document.getElementById('status').innerText = "ACCESS GRANTED";
+        document.getElementById('status').style.color = "#00ff88";
+        document.getElementById('game-card').classList.add('vault-open');
+        document.getElementById('game-card').classList.remove('jitter');
+        showFinalMsg("💰 VAULT OPEN 💰", "#00ff88");
+        return;
+    }
+
+    // FAIL CONDITION
+    if(attempts >= MAX){
+        isGameOver = true;
+        document.getElementById('status').innerText = "TERMINAL LOCKED: " + code.join("");
+        document.getElementById('game-card').classList.add('vault-fail');
+        document.getElementById('game-card').classList.remove('jitter');
+        showFinalMsg("🚨 BUSTED 🚨", "#ff4444");
+        document.getElementById('submit').disabled = true;
+    }
+
+    current = []; update();
+}
+
+function showFinalMsg(txt, color) {
+    let msg = document.getElementById('final-msg');
+    msg.innerText = txt;
+    msg.style.color = color;
+    msg.style.display = "block";
+    msg.style.animation = "pulse 1s infinite";
+}
+
+// MATRIX BG
+const canvas = document.getElementById('canvas-back');
+const ctx = canvas.getContext('2d');
+let matrixInterval;
+function startMatrix() {
+    if(matrixInterval) return;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const letters = "0101018273948576";
+    const fontSize = 16;
+    const columns = canvas.width / fontSize;
+    const drops = Array(Math.floor(columns)).fill(1);
+
+    function draw() {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#00ff88";
+        ctx.font = fontSize + "px monospace";
+        for (let i = 0; i < drops.length; i++) {
+            const text = letters.charAt(Math.floor(Math.random() * letters.length));
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+        }
+    }
+    matrixInterval = setInterval(draw, 33);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0a22">
+<meta name="description" content="Arcade: a small collection of fast, instant-play browser games.">
+<meta property="og:title" content="Arcade">
+<meta property="og:description" content="Fast, instant-play browser games.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Arcade</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎮%3C/text%3E%3C/svg%3E">
+<style>
+@property --c{syntax:'<color>';inherits:true;initial-value:#8b84ff}
+@property --bg{syntax:'<color>';inherits:true;initial-value:#0b0a22}
+:root{--ink:#f3f4f7;--mut:rgba(243,244,247,.62);--ease:cubic-bezier(.2,.8,.2,1);--cw:min(78vw,340px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{
+  height:100dvh;display:flex;flex-direction:column;overflow:hidden;
+  background:var(--bg);color:var(--ink);
+  font-family:ui-rounded,"SF Pro Rounded","Segoe UI Variable","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",sans-serif;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  transition:--c .6s ease,--bg .6s ease;touch-action:manipulation;
+  -webkit-font-smoothing:antialiased;
+}
+.glow{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(70% 50% at 50% 45%,color-mix(in srgb,var(--c) 32%,transparent),transparent 72%)}
+.top{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:baseline;padding:18px 24px 4px;animation:down .7s var(--ease) both}
+.brand{font-weight:800;font-size:1.5rem;letter-spacing:-.03em}
+.count{font-size:.95rem;color:var(--mut);font-variant-numeric:tabular-nums}
+.stage{position:relative;z-index:1;flex:1;min-height:0;display:flex;align-items:center}
+.rail{
+  position:relative;display:flex;gap:16px;width:100%;overflow-x:auto;align-items:center;
+  padding:0 calc((100vw - var(--cw))/2);
+  scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;animation:up .8s var(--ease) .08s both;
+}
+.rail::-webkit-scrollbar{display:none}
+@keyframes up{from{opacity:0;transform:translateY(24px)}}
+@keyframes down{from{opacity:0;transform:translateY(-14px)}}
+.card{
+  flex:none;width:var(--cw);height:clamp(320px,60dvh,480px);
+  scroll-snap-align:center;scroll-snap-stop:always;
+  display:flex;flex-direction:column;overflow:hidden;cursor:pointer;contain:layout paint;
+  border-radius:28px;border:1px solid rgba(255,255,255,.09);
+  background:linear-gradient(165deg,color-mix(in srgb,var(--c) 30%,#14151b),#0f1015 75%);
+  box-shadow:0 30px 60px -32px color-mix(in srgb,var(--c) 75%,transparent);
+  transform:scale(.9);opacity:.55;will-change:transform,opacity;outline:none;
+}
+.card:focus-visible{border-color:var(--c)}
+/* only the focused card animates: saves battery and keeps scrolling smooth */
+.card:not(.act) *{animation-play-state:paused!important}
+.art{position:relative;flex:1;min-height:0;overflow:hidden}
+.info{padding:16px 22px 24px}
+.info h2{margin:0;font-size:2rem;font-weight:800;letter-spacing:-.03em;line-height:1}
+.info p{margin:7px 0 0;color:var(--mut);font-size:.98rem}
+.nav{position:absolute;top:50%;z-index:2;width:46px;height:46px;margin-top:-23px;border:0;border-radius:50%;
+  display:none;place-items:center;color:#fff;cursor:pointer;
+  background:rgba(255,255,255,.1);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:background .2s,opacity .25s,transform .2s var(--ease)}
+.nav:hover{background:rgba(255,255,255,.2)}.nav:active{transform:scale(.92)}
+.nav:disabled{opacity:0;pointer-events:none}
+.nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.nav.l{left:max(16px,calc(50% - 300px))}.nav.r{right:max(16px,calc(50% - 300px))}
+@media (hover:hover) and (min-width:700px){.nav{display:grid}}
+.dock{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 24px 22px;animation:up .7s var(--ease) .2s both}
+.dots{display:flex;gap:8px}
+.dots i{width:7px;height:7px;border-radius:9px;background:rgba(255,255,255,.28);transition:width .35s var(--ease),background .35s}
+.dots i.on{width:26px;background:var(--c)}
+.play{
+  appearance:none;border:0;font:inherit;font-weight:800;font-size:1.1rem;letter-spacing:-.01em;
+  width:min(100%,340px);padding:17px 24px;border-radius:18px;cursor:pointer;
+  background:var(--c);color:#0b0c10;transition:transform .15s var(--ease),filter .2s;
+}
+.play:hover{filter:brightness(1.08)}.play:active{transform:scale(.97)}
+.play:focus-visible,.bar button:focus-visible,.nav:focus-visible{outline:3px solid #fff;outline-offset:3px}
+
+/* card art */
+.a-svg{position:absolute;inset:0;margin:auto;width:76%;height:100%;color:var(--c);overflow:visible}
+.a-mx{position:absolute;inset:0;width:100%;height:100%}
+.a-black{position:absolute;inset:0;background:#05050f}
+.beam{position:absolute;left:0;top:0;width:150px;height:150px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.6),color-mix(in srgb,var(--c) 30%,transparent) 42%,transparent 70%);
+  animation:roam 8s ease-in-out infinite alternate}
+@keyframes roam{0%{transform:translate(10%,20%)}33%{transform:translate(120%,70%)}66%{transform:translate(30%,150%)}100%{transform:translate(105%,30%)}}
+.ring{transform-box:fill-box;transform-origin:center;animation:spin 16s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.trace{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 4.5s ease-in-out infinite alternate}
+@keyframes draw{to{stroke-dashoffset:0}}
+.a-flap{position:absolute;inset:0}
+.pp{position:absolute;top:0;bottom:0;right:-60px;width:46px;display:flex;flex-direction:column;justify-content:space-between;
+  animation:pipe 3.6s linear infinite;animation-delay:var(--d)}
+.pp b,.pp u{display:block;background:#4fcf6b;border:3px solid #247f3c;border-radius:8px}
+.pp b{height:var(--t);border-top:0}.pp u{height:var(--bt);border-bottom:0}
+@keyframes pipe{to{transform:translateX(calc(-1*var(--cw) - 120px))}}
+.bird{position:absolute;left:26%;top:44%;width:32px;height:25px;border-radius:50%;background:#ffd23f;
+  box-shadow:inset -5px -4px 0 #f0a500;animation:flap 1.2s ease-in-out infinite}
+.bird::after{content:"";position:absolute;right:5px;top:5px;width:7px;height:7px;border-radius:50%;background:#111}
+@keyframes flap{0%,100%{transform:translateY(-28px) rotate(-14deg)}50%{transform:translateY(28px) rotate(18deg)}}
+.a-flash{position:absolute;inset:0}
+.a-flash i{position:absolute;left:50%;top:50%;width:46%;aspect-ratio:1;margin:-23% 0 0 -23%;border-radius:50%;
+  background:radial-gradient(circle,#fff,rgba(255,150,90,.55) 45%,transparent 70%);
+  animation:burst 2.4s ease-out infinite;animation-delay:calc(var(--k)*.8s)}
+@keyframes burst{0%{transform:scale(.2);opacity:1}100%{transform:scale(3);opacity:0}}
+.a-flash b{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px;border-radius:50%;background:#fff;box-shadow:0 0 40px 14px rgba(255,255,255,.7)}
+
+/* player */
+.player{position:fixed;inset:0;z-index:20;display:none;flex-direction:column;background:#000;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.player.on{display:flex}
+.bar{flex:none;height:48px;display:flex;align-items:center;gap:4px;padding:0 8px;background:#0c0d11}
+.bar b{flex:1;padding-left:6px;font-size:1rem;font-weight:800;letter-spacing:-.01em}
+.bar button{width:40px;height:40px;border:0;border-radius:12px;background:transparent;color:#fff;display:grid;place-items:center;cursor:pointer}
+.bar button:active{background:rgba(255,255,255,.14)}
+.bar svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.frame{position:relative;flex:1;min-height:0;background:#000}
+.frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.loader{position:absolute;inset:0;display:grid;place-items:center;background:#0c0d11;transition:opacity .3s}
+.loader.off{opacity:0;pointer-events:none}
+.spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.15);border-top-color:var(--c);animation:spin .8s linear infinite}
+body.lock .top,body.lock .stage,body.lock .dock{visibility:hidden}
+
+@media (min-width:700px){:root{--cw:340px}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .trace{stroke-dashoffset:0}.card{opacity:1}
+}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+
+<header class="top">
+  <div class="brand">Arcade</div>
+  <div class="count" id="count">1 / 6</div>
+</header>
+
+<main class="stage">
+  <button class="nav l" id="prev" type="button" aria-label="Previous game"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <div class="rail" id="rail">
+
+    <article class="card" tabindex="0" role="button" aria-label="Play blackout" data-id="blackout" data-bg="#0b0a22" style="--c:#8b84ff">
+      <div class="art"><div class="a-black"><span class="beam"></span></div></div>
+      <div class="info"><h2>blackout</h2><p>Play in the dark.</p></div>
+    </article>
+
+    <article class="card" tabindex="0" role="button" aria-label="Play code lock" data-id="code_lock" data-bg="#1b1406" style="--c:#f0b440">
+      <div class="art"><svg class="a-svg" viewBox="0 0 200 200"><g class="ring"><circle cx="100" cy="100" r="72" fill="none" stroke="currentColor" stroke-width="10" stroke-dasharray="2 8.8" opacity=".9"/></g><circle cx="100" cy="100" r="54" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/><text x="100" y="113" text-anchor="middle" font-size="36" font-weight="800" fill="currentColor" letter-spacing="8">417</text></svg></div>
+      <div class="info"><h2>code lock</h2><p>Crack the code.</p></div>
+    </article>
+
+    <article class="card" tabindex="0" role="button" aria-label="Play flappy" data-id="flappy" data-bg="#0a2536" style="--c:#ffd23f">
+      <div class="art"><div class="a-flap"><i class="pp" style="--d:0s;--t:26%;--bt:36%"><b></b><u></u></i><i class="pp" style="--d:-1.8s;--t:44%;--bt:18%"><b></b><u></u></i><span class="bird"></span></div></div>
+      <div class="info"><h2>flappy</h2><p>Tap to stay in the air.</p></div>
+    </article>
+
+    <article class="card" tabindex="0" role="button" aria-label="Play flashbang" data-id="flashbang" data-bg="#2a1209" style="--c:#ff8a50">
+      <div class="art"><div class="a-flash"><i style="--k:0"></i><i style="--k:1"></i><i style="--k:2"></i><b></b></div></div>
+      <div class="info"><h2>flashbang</h2><p>Quick reflexes, bright light.</p></div>
+    </article>
+
+    <article class="card" tabindex="0" role="button" aria-label="Play matrix" data-id="matrix" data-bg="#04160f" style="--c:#2ee59d">
+      <div class="art"><canvas class="a-mx"></canvas></div>
+      <div class="info"><h2>matrix</h2><p>Falling code.</p></div>
+    </article>
+
+    <article class="card" tabindex="0" role="button" aria-label="Play vault maze" data-id="vault_maze" data-bg="#0a1d26" style="--c:#62b8d6">
+      <div class="art"><svg class="a-svg" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><path opacity=".25" d="M20 20H180V180H20V60H140V140H60V100H100"/><path class="trace" pathLength="1" d="M20 20H180V180H20V60H140V140H60V100H100"/></svg></div>
+      <div class="info"><h2>vault maze</h2><p>Find a way through the vault.</p></div>
+    </article>
+
+  </div>
+  <button class="nav r" id="next" type="button" aria-label="Next game"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+</main>
+
+<footer class="dock">
+  <div class="dots" id="dots" aria-hidden="true"></div>
+  <button class="play" id="play" type="button">Play</button>
+</footer>
+
+<section class="player" id="player" aria-label="Game player">
+  <div class="bar">
+    <button id="close" type="button" aria-label="Close game"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <b id="title"></b>
+    <button id="reload" type="button" aria-label="Restart game"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v5h-5"/></svg></button>
+    <button id="newtab" type="button" aria-label="Open in new tab"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></button>
+    <button id="full" type="button" aria-label="Toggle fullscreen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  </div>
+  <div class="frame">
+    <iframe id="frame" title="Game" allow="fullscreen; autoplay; gamepad" src="about:blank"></iframe>
+    <div class="loader" id="loader"><div class="spin"></div></div>
+  </div>
+</section>
+
+<noscript><p style="position:relative;z-index:2;padding:24px">
+  <a href="blackout/">blackout</a> · <a href="code_lock/">code lock</a> · <a href="flappy/">flappy</a> ·
+  <a href="flashbang/">flashbang</a> · <a href="matrix/">matrix</a> · <a href="vault_maze/">vault maze</a></p></noscript>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const rail=$('#rail'),dots=$('#dots'),count=$('#count'),playBtn=$('#play'),body=document.body;
+const prev=$('#prev'),next=$('#next'),theme=document.querySelector('meta[name=theme-color]');
+
+/* Game data is read from the cards in the HTML above: edit them there. */
+const cards=[...rail.children];
+const G=cards.map(c=>({id:c.dataset.id,name:c.querySelector('h2').textContent,c:c.style.getPropertyValue('--c').trim(),bg:c.dataset.bg}));
+dots.innerHTML=G.map(()=>'<i></i>').join('');
+const dot=[...dots.children];
+let cur=-1,tick=0,playing=null;
+const fetched=new Set();
+const idle=window.requestIdleCallback||(f=>setTimeout(f,200));
+
+/* warm the cache for the active game so it opens instantly */
+function prefetch(id){
+  if(fetched.has(id))return;fetched.add(id);
+  idle(()=>{const l=document.createElement('link');l.rel='prefetch';l.href=id+'/';document.head.appendChild(l)});
+}
+function setActive(i){
+  cur=i;const g=G[i];
+  body.style.setProperty('--c',g.c);body.style.setProperty('--bg',g.bg);
+  theme.content=g.bg;
+  cards.forEach((c,k)=>c.classList.toggle('act',k===i));
+  dot.forEach((d,k)=>d.classList.toggle('on',k===i));
+  count.textContent=`${i+1} / ${G.length}`;
+  playBtn.textContent=`Play ${g.name}`;
+  prev.disabled=i===0;next.disabled=i===G.length-1;
+  if(navigator.vibrate&&tick++)navigator.vibrate(6);
+  prefetch(g.id);
+}
+function update(){
+  const mid=rail.scrollLeft+rail.clientWidth/2;let best=0,bd=1e9;
+  cards.forEach((c,i)=>{
+    const dist=Math.abs(c.offsetLeft+c.offsetWidth/2-mid);
+    const d=Math.min(1,dist/(c.offsetWidth+16));
+    c.style.transform=`scale(${1-.1*d})`;c.style.opacity=1-.45*d;
+    if(dist<bd){bd=dist;best=i}
+  });
+  if(best!==cur)setActive(best);
+}
+let raf=0;
+rail.addEventListener('scroll',()=>{raf||(raf=requestAnimationFrame(()=>{raf=0;update()}))},{passive:true});
+addEventListener('resize',()=>{update();mxFit()});
+rail.addEventListener('wheel',e=>{
+  if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){e.preventDefault();rail.scrollLeft+=e.deltaY}
+},{passive:false});
+const go=(i,instant)=>cards[Math.max(0,Math.min(G.length-1,i))]
+  .scrollIntoView({behavior:instant||RM?'auto':'smooth',inline:'center',block:'nearest'});
+prev.onclick=()=>go(cur-1);next.onclick=()=>go(cur+1);
+
+cards.forEach((c,i)=>{
+  const act=e=>{i===cur?openGame(i,e.clientX||innerWidth/2,e.clientY||innerHeight/2):go(i)};
+  c.addEventListener('click',act);
+  c.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act(e)}});
+});
+playBtn.addEventListener('click',()=>{
+  const r=playBtn.getBoundingClientRect();
+  openGame(cur,r.left+r.width/2,r.top+r.height/2);
+});
+
+/* player */
+const player=$('#player'),frame=$('#frame'),loader=$('#loader');
+frame.addEventListener('load',()=>{if(playing)loader.classList.add('off')});
+function openGame(i,x,y,fromHash){
+  if(playing)return;
+  const g=G[i];playing=g;
+  $('#title').textContent=g.name;
+  loader.classList.remove('off');
+  frame.src=g.id+'/';
+  player.classList.add('on');body.classList.add('lock');
+  if(!fromHash)history.pushState({g:g.id},'','#'+g.id);
+  if(!RM&&!fromHash)player.animate(
+    [{clipPath:`circle(0px at ${x}px ${y}px)`},{clipPath:`circle(150vmax at ${x}px ${y}px)`}],
+    {duration:480,easing:'cubic-bezier(.2,.8,.2,1)'});
+}
+function hideGame(){
+  if(!playing)return;
+  const done=()=>{player.classList.remove('on');body.classList.remove('lock');frame.src='about:blank';playing=null};
+  if(RM)return done();
+  const a=player.animate(
+    [{clipPath:'circle(150vmax at 50% 50%)'},{clipPath:'circle(0px at 50% 50%)'}],
+    {duration:320,easing:'cubic-bezier(.4,0,.2,1)'});
+  a.onfinish=done;
+}
+function closeGame(){
+  if(history.state&&history.state.g)history.back();
+  else{history.replaceState(null,'',location.pathname+location.search);hideGame()}
+}
+addEventListener('popstate',()=>{
+  const id=location.hash.slice(1),i=G.findIndex(g=>g.id===id);
+  if(i>-1&&!playing){go(i,true);openGame(i,0,0,true)}else if(i<0)hideGame();
+});
+$('#close').onclick=closeGame;
+$('#reload').onclick=()=>{loader.classList.remove('off');try{frame.contentWindow.location.reload()}catch(e){frame.src=frame.src}};
+$('#newtab').onclick=()=>playing&&open(playing.id+'/','_blank');
+const fs=$('#full');
+if(!document.fullscreenEnabled)fs.hidden=true;
+fs.onclick=()=>document.fullscreenElement?document.exitFullscreen():player.requestFullscreen&&player.requestFullscreen();
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&playing)return closeGame();
+  if(playing)return;
+  if(e.key==='ArrowRight')go(cur+1);
+  if(e.key==='ArrowLeft')go(cur-1);
+  if(e.key==='Enter'&&document.activeElement===document.body)openGame(cur,innerWidth/2,innerHeight/2);
+});
+
+/* matrix rain: runs only while its card is active */
+const mi=G.findIndex(g=>g.id==='matrix');
+const cv=mi>-1?cards[mi].querySelector('canvas'):null,cx=cv&&cv.getContext('2d');
+const chars='ｱｲｳｴｵｶｷｸｹｺｻｼｽ0123456789';let cols=[],W=0,H=0;
+function mxFit(){
+  if(!cv)return;
+  W=cv.width=cv.offsetWidth;H=cv.height=cv.offsetHeight;
+  cols=Array.from({length:Math.ceil(W/14)},()=>Math.random()*H/14|0);
+  cx.fillStyle='#04160f';cx.fillRect(0,0,W,H);
+}
+function mxStep(){
+  cx.fillStyle='rgba(4,22,15,.14)';cx.fillRect(0,0,W,H);
+  cx.fillStyle='#2ee59d';cx.font='14px monospace';
+  cols.forEach((y,i)=>{
+    cx.fillText(chars[Math.random()*chars.length|0],i*14,y*14);
+    cols[i]=y*14>H&&Math.random()>.96?0:y+1;
+  });
+}
+let last=0;
+function mxLoop(t){
+  requestAnimationFrame(mxLoop);
+  if(cur!==mi||playing||document.hidden||t-last<45)return;
+  last=t;mxStep();
+}
+if(cv){mxFit();if(RM){for(let i=0;i<70;i++)mxStep()}else requestAnimationFrame(mxLoop)}
+
+/* start */
+const HOME='flappy'; /* the card visitors land on: change to any game id */
+const home=Math.max(0,G.findIndex(g=>g.id===HOME));
+const centerOn=i=>{const c=cards[i];rail.scrollLeft=c.offsetLeft+c.offsetWidth/2-rail.clientWidth/2};
+centerOn(home);
+update();
+const h=G.findIndex(g=>g.id===location.hash.slice(1));
+if(h>-1){go(h,true);openGame(h,0,0,true)}
+})();
+</script>
+</body>
+</html>
